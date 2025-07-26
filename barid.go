@@ -3,12 +3,14 @@ package barid
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
 const BaseURL = "https://api.barid.site"
+const Charset = "abcdefghijklmnopqrstuvwxyz"
 
 type Client struct {
 	Email          string
@@ -20,6 +22,21 @@ func New(email string) *Client {
 		Email:          email,
 		RequestTimeout: 10 * time.Second,
 	}
+}
+func NewRandom() *Client {
+	email := fmt.Sprintf("%s@%s", Stringn(7), "barid.site")
+	return &Client{
+		Email:          email,
+		RequestTimeout: 10 * time.Second,
+	}
+}
+
+func Stringn(length int) string {
+	u := make([]byte, length)
+	for i := range u {
+		u[i] = Charset[rand.Intn(len(Charset))]
+	}
+	return string(u)
 }
 
 func (client *Client) makeRequest(endpoint string) ([]byte, error) {
@@ -43,7 +60,6 @@ func (client *Client) makeRequest(endpoint string) ([]byte, error) {
 	if response.StatusCode() < 200 || response.StatusCode() >= 300 {
 		return nil, fmt.Errorf("unexpected status code: %d, body: %s", response.StatusCode(), response.Body())
 	}
-
 	return response.Body(), nil
 }
 
@@ -114,25 +130,25 @@ func (client *Client) GetEmails(limit, offset int) ([]Email, error) {
 }
 
 func (client *Client) GetAvailableDomains() ([]string, error) {
-	responseBody, err := client.makeRequest("domains")
+	data, err := client.makeRequest("domains")
 	if err != nil {
 		return nil, err
 	}
 
-	var apiResponse struct {
-		Success     bool     `json:"success"`
-		DomainsList []string `json:"result"`
+	var response struct {
+		Success bool     `json:"success"`
+		Domains []string `json:"result"`
 	}
 
-	if err := json.Unmarshal(responseBody, &apiResponse); err != nil {
+	if err := json.Unmarshal(data, &response); err != nil {
 		return nil, err
 	}
 
-	if !apiResponse.Success {
-		return nil, fmt.Errorf("request failed: %s", string(responseBody))
+	if !response.Success {
+		return nil, fmt.Errorf("failed to get domains: %s", string(data))
 	}
 
-	return apiResponse.DomainsList, nil
+	return response.Domains, nil
 }
 
 func (email *Email) GetInbox() (Message, error) {
