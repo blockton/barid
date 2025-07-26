@@ -1,6 +1,14 @@
 package barid
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
+
+type APIResponse struct {
+	Success bool            `json:"success"`
+	Result  json.RawMessage `json:"result"`
+}
 
 type RawEmail struct {
 	ID       string `json:"id"`
