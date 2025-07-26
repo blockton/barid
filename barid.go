@@ -97,7 +97,7 @@ func (a *API) GetEmails() ([]Email, error) {
 	if err := json.Unmarshal(result.Result, &rawEmails); err != nil {
 		return nil, errors.New("failed to decode emails")
 	}
-	var emails = make([]Email, len(rawEmails))
+	var emails []Email
 	for _, rawEmail := range rawEmails {
 		emails = append(emails, Email{
 			ID:       rawEmail.ID,
