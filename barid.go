@@ -1,3 +1,4 @@
+
 package barid
 
 import (
@@ -6,7 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-
+	"io"
 	"github.com/go-faster/errors"
 )
 
@@ -35,7 +36,6 @@ func New(email string) *API {
 	}
 }
 
-// GenrateRandomEmail generates a random email address
 func GenrateRandomEmail() *API {
 	var letters = []rune("abcdefghijklmnopqrstuvwxyz")
 
@@ -51,7 +51,6 @@ func GenrateRandomEmail() *API {
 	}
 }
 
-// GetAvailableDomains returns a list of available domains
 func (a *API) GetAvailableDomains() ([]string, error) {
 	response, err := a.DoRequest(getDomains, nil)
 	if err != nil {
@@ -76,7 +75,6 @@ func (a *API) GetAvailableDomains() ([]string, error) {
 	return domains, nil
 }
 
-// GetEmails returns a list of received emails
 func (a *API) GetEmails() ([]Email, error) {
 	response, err := a.DoRequest(getEmails, nil)
 	if err != nil {
@@ -113,7 +111,6 @@ func (a *API) GetEmails() ([]Email, error) {
 	return emails, nil
 }
 
-// DelEmails deletes all received emails
 func (a *API) DelEmails() (int, error) {
 	response, err := a.DoRequest(delEmails, nil)
 	if err != nil {
@@ -140,7 +137,6 @@ func (a *API) DelEmails() (int, error) {
 	return result.Result.DeletedCount, nil
 }
 
-// GetEmailsCount returns the total number of received emails
 func (a *API) GetEmailsCount() (int, error) {
 	response, err := a.DoRequest(countMails, nil)
 	if err != nil {
@@ -167,7 +163,6 @@ func (a *API) GetEmailsCount() (int, error) {
 	return result.Result.Count, nil
 }
 
-// GetEmailInbox returns the message with the given ID
 func (a *API) GetEmailInbox(emailID string) (*Message, error) {
 	response, err := a.DoRequest(getEmailInbox, map[string]string{
 		"ID": emailID,
@@ -202,7 +197,6 @@ func (a *API) GetEmailInbox(emailID string) (*Message, error) {
 	}, nil
 }
 
-// DelEmailInbox deletes the message with the given ID
 func (a *API) DelEmailInbox(emailID string) (string, error) {
 	response, err := a.DoRequest(delEmailInbox, map[string]string{
 		"ID": emailID,
@@ -277,7 +271,8 @@ func (a *API) DoRequest(action apiActions, args map[string]string) (*http.Respon
 	//defer response.Body.Close()
 
 	if response != nil && response.StatusCode != 200 {
-		return nil, errors.Errorf("[ %d ] - failed to send request", response.StatusCode)
+		body, _ := io.ReadAll(response.Body)
+		return nil, errors.Errorf("[ %d ] - failed to send request:\n%s", response.StatusCode, string(body))
 	}
 
 	return response, nil
