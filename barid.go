@@ -4,153 +4,115 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
-	"github.com/valyala/fasthttp"
+	"github.com/go-faster/errors"
 )
 
-const BaseURL = "https://api.barid.site"
-const Charset = "abcdefghijklmnopqrstuvwxyz"
+type apiActions int
 
-type Client struct {
-	Email          string
-	RequestTimeout time.Duration
+const APIBase string = "https://api.barid.site"
+
+const (
+	GetDomains apiActions = iota
+
+	GetEmails
+	DelEmails
+	CountMails
+
+	GetEmailInbox
+	DelEmailInbox
+)
+
+type API struct {
+	Email string
 }
 
-func New(email string) *Client {
-	return &Client{
-		Email:          email,
-		RequestTimeout: 10 * time.Second,
-	}
-}
-func NewRandom() *Client {
-	email := fmt.Sprintf("%s@%s", Stringn(7), "barid.site")
-	return &Client{
-		Email:          email,
-		RequestTimeout: 10 * time.Second,
+func New(email string) *API {
+	return &API{
+		Email: email,
 	}
 }
 
-func Stringn(length int) string {
-	u := make([]byte, length)
-	for i := range u {
-		u[i] = Charset[rand.Intn(len(Charset))]
+func GenrateRandomEmail() *API {
+	var letters = []rune("abcdefghijklmnopqrstuvwxyz")
+
+	email := make([]rune, 7)
+	for i := range email {
+		email[i] = letters[rand.Intn(len(letters))]
 	}
-	return string(u)
+	email = append(email, '@')
+	email = append(email, []rune("barid.site")...)
+
+	return &API{
+		Email: string(email),
+	}
 }
 
-func (client *Client) makeRequest(endpoint string) ([]byte, error) {
-	requestURL := fmt.Sprintf("%s/%s", BaseURL, endpoint)
-
-	request := fasthttp.AcquireRequest()
-	response := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseRequest(request)
-	defer fasthttp.ReleaseResponse(response)
-
-	request.SetRequestURI(requestURL)
-	request.Header.SetMethod(fasthttp.MethodGet)
-	request.Header.SetContentType("application/json")
-
-	httpClient := &fasthttp.Client{}
-
-	if err := httpClient.DoTimeout(request, response, client.RequestTimeout); err != nil {
-		return nil, fmt.Errorf("http request failed: %w", err)
-	}
-
-	if response.StatusCode() < 200 || response.StatusCode() >= 300 {
-		return nil, fmt.Errorf("unexpected status code: %d, body: %s", response.StatusCode(), response.Body())
-	}
-	return response.Body(), nil
-}
-
-func (client *Client) GetEmailInbox(emailID string) (Message, error) {
-	endpoint := fmt.Sprintf("inbox/%s", emailID)
-	data, err := client.makeRequest(endpoint)
-	if err != nil {
-		return Message{}, err
-	}
-
-	var response struct {
-		Success bool       `json:"success"`
-		Message RawMessage `json:"result"`
-	}
-
-	if err := json.Unmarshal(data, &response); err != nil {
-		return Message{}, err
-	}
-
-	if !response.Success {
-		return Message{}, fmt.Errorf("failed to get email inbox: %s", string(data))
-	}
-
-	return Message{
-		ID:          response.Message.ID,
-		To:          response.Message.To,
-		From:        response.Message.From,
-		Subject:     response.Message.Subject,
-		Received:    time.Unix(response.Message.Received, 0),
-		HTMLContent: response.Message.HTMLContent,
-		TextContent: response.Message.TextContent,
-	}, nil
-}
-
-func (client *Client) GetEmails(limit, offset int) ([]Email, error) {
-	endpoint := fmt.Sprintf("emails/%s?limit=%d&offset=%d", client.Email, limit, offset)
-	data, err := client.makeRequest(endpoint)
+func (a *API) GetAvailableDomains() ([]string, error) {
+	response, err := a.DoRequest(GetDomains, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var response struct {
-		Success bool       `json:"success"`
-		Emails  []RawEmail `json:"result"`
-	}
+	defer response.Body.Close()
 
-	if err := json.Unmarshal(data, &response); err != nil {
-		return nil, err
+	domains := make([]string, 0)
+	if err := json.NewDecoder(response.Body).Decode(&domains); err != nil {
+		return nil, errors.New("failed to decode domains")
 	}
-
-	if !response.Success {
-		return nil, fmt.Errorf("failed to get emails: %s", string(data))
-	}
-
-	emails := make([]Email, len(response.Emails))
-	for index, emailData := range response.Emails {
-		emails[index] = Email{
-			ID:       emailData.ID,
-			To:       emailData.To,
-			From:     emailData.From,
-			Subject:  emailData.Subject,
-			Received: time.Unix(emailData.Received, 0),
-			_client:  client,
-		}
-	}
-
-	return emails, nil
+	return domains, nil
 }
 
-func (client *Client) GetAvailableDomains() ([]string, error) {
-	data, err := client.makeRequest("domains")
+func (a *API) DoRequest(action apiActions, args map[string]string) (*http.Response, error) {
+	var url string
+	var method string
+
+	switch action {
+	case GetEmails:
+		method = "GET"
+		url = fmt.Sprintf("%s/emails/%s", APIBase, a.Email)
+	case DelEmails:
+		method = "DELETE"
+		url = fmt.Sprintf("%s/emails/%s", APIBase, a.Email)
+	case CountMails:
+		method = "GET"
+		url = fmt.Sprintf("%s/emails/count/%s", APIBase, a.Email)
+	case GetDomains:
+		method = "GET"
+		url = fmt.Sprintf("%s/domains", APIBase)
+	case GetEmailInbox:
+		method = "GET"
+		url = fmt.Sprintf("%s/inbox/%s", APIBase, args["ID"])
+	case DelEmailInbox:
+		method = "DELETE"
+		url = fmt.Sprintf("%s/inbox/%s", APIBase, args["ID"])
+	default:
+		return nil, errors.New("unknown action")
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	r, err := http.NewRequest(method, url, nil)
+	r.Header.Set("Content-Type", "application/json")
+
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to create request")
 	}
 
-	var response struct {
-		Success bool     `json:"success"`
-		Domains []string `json:"result"`
+	response, err := client.Do(r)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to send request")
 	}
 
-	if err := json.Unmarshal(data, &response); err != nil {
-		return nil, err
+	//defer response.Body.Close()
+
+	if err != nil || (response != nil && response.StatusCode != 200) {
+		return nil, errors.Errorf("[ %d ] - failed to send request", response.StatusCode)
 	}
 
-	if !response.Success {
-		return nil, fmt.Errorf("failed to get domains: %s", string(data))
-	}
-
-	return response.Domains, nil
-}
-
-func (email *Email) GetInbox() (Message, error) {
-	return email._client.GetEmailInbox(email.ID)
+	return response, nil
 }
