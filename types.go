@@ -47,3 +47,5 @@ type Message struct {
 	HTMLContent string `json:"html_content"`
 	TextContent string `json:"text_content"`
 }
+
+// todo: add attachments field
