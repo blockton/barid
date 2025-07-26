@@ -64,7 +64,7 @@ func (a *API) GetAvailableDomains() ([]string, error) {
 		return nil, errors.New("failed to decode domains")
 	}
 	if !result.Success {
-		return nil, errors.New("failed to get domains")
+		return nil, errors.New("something went wrong")
 	}
 	var domains []string
 
@@ -72,6 +72,156 @@ func (a *API) GetAvailableDomains() ([]string, error) {
 		return nil, errors.New("failed to decode domains")
 	}
 	return domains, nil
+}
+
+func (a *API) GetEmails() ([]Email, error) {
+	response, err := a.DoRequest(getEmails, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	var result APIResponse
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return nil, errors.New("failed to decode emails")
+	}
+
+	if !result.Success {
+		return nil, errors.New("something went wrong")
+	}
+
+	var rawEmails []rawEmail
+	if err := json.Unmarshal(result.Result, &rawEmails); err != nil {
+		return nil, errors.New("failed to decode emails")
+	}
+	var emails = make([]Email, len(rawEmails))
+	for _, rawEmail := range rawEmails {
+		emails = append(emails, Email{
+			ID:       rawEmail.ID,
+			To:       rawEmail.To,
+			From:     rawEmail.From,
+			Subject:  rawEmail.Subject,
+			Received: time.Unix(rawEmail.Received, 0),
+		})
+	}
+
+	return emails, nil
+}
+
+func (a *API) DelEmails() (int, error) {
+	response, err := a.DoRequest(delEmails, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	defer response.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+		Result  struct {
+			DeletedCount int `json:"deleted_count"`
+		} `json:"result"`
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return 0, errors.New("failed to decode deleted count")
+	}
+
+	if !result.Success {
+		return 0, errors.New("something went wrong")
+	}
+
+	return result.Result.DeletedCount, nil
+}
+
+func (a *API) GetEmailsCount() (int, error) {
+	response, err := a.DoRequest(countMails, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	defer response.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+		Result  struct {
+			Count int `json:"count"`
+		} `json:"result"`
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return 0, errors.New("failed to decode count")
+	}
+
+	if !result.Success {
+		return 0, errors.New("something went wrong")
+	}
+
+	return result.Result.Count, nil
+}
+
+func (a *API) GetEmailInbox(emailID string) (*Message, error) {
+	response, err := a.DoRequest(getEmailInbox, map[string]string{
+		"ID": emailID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	defer response.Body.Close()
+
+	var result struct {
+		Success bool       `json:"success"`
+		Result  rawMessage `json:"result"`
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return nil, errors.New("failed to decode message")
+	}
+	if !result.Success {
+		return nil, errors.New("something went wrong")
+	}
+
+	return &Message{
+		ID:       result.Result.ID,
+		To:       result.Result.To,
+		From:     result.Result.From,
+		Subject:  result.Result.Subject,
+		Received: time.Unix(result.Result.Received, 0),
+
+		HTMLContent: result.Result.HTMLContent,
+		TextContent: result.Result.TextContent,
+	}, nil
+}
+
+func (a *API) DelEmailInbox(emailID string) (string, error) {
+	response, err := a.DoRequest(delEmailInbox, map[string]string{
+		"ID": emailID,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	defer response.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+		Result  struct {
+			Msg string `json:"message"`
+		} `json:"result"`
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return "", errors.New("failed to decode response")
+	}
+
+	if !result.Success {
+		return "", errors.New("something went wrong")
+
+	}
+	return result.Result.Msg, nil
 }
 
 func (a *API) DoRequest(action apiActions, args map[string]string) (*http.Response, error) {

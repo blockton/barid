@@ -10,7 +10,7 @@ type APIResponse struct {
 	Result  json.RawMessage `json:"result"`
 }
 
-type RawEmail struct {
+type rawEmail struct {
 	ID       string `json:"id"`
 	To       string `json:"to_address"`
 	From     string `json:"from_address"`
@@ -18,7 +18,7 @@ type RawEmail struct {
 	Received int64  `json:"received_at"`
 }
 
-type RawMessage struct {
+type rawMessage struct {
 	ID       string `json:"id"`
 	To       string `json:"to_address"`
 	From     string `json:"from_address"`
