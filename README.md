@@ -83,6 +83,13 @@ func main() {
 }
 
 ```
+### Generate a Specified Email
+
+```go
+temp := barid.New("dev@wael.fun")
+fmt.Println("Created Specified Email:", temp.Email)
+```
+
 ### Generate a Random Email
 
 ```go
