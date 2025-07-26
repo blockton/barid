@@ -4,12 +4,10 @@ Go client for [https://api.barid.site/](https://api.barid.site/).
 
 ## Features
 
-- Generate truly random, disposable email addresses  
-- Support for multiple domains 
-- Fetch count of received messages in real-time  
-- Retrieve full message payloads (plain-text & HTML bodies)  
-- Delete individual emails or purge your entire inbox  
-
+- Real-time updates
+- Support multiple domains
+- Retrieve full message payloads (plain-text & HTML bodies)
+  
 ## Installation
 
 ```bash
