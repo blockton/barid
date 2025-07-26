@@ -27,7 +27,7 @@ type Email struct {
 	From     string    `json:"from_address"`
 	Subject  string    `json:"subject"`
 	Received time.Time `json:"received_at"`
-	_client  *Client
+	_client  *Client   //
 }
 
 type Message struct {
