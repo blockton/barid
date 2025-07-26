@@ -15,14 +15,14 @@ type apiActions int
 const APIBase string = "https://api.barid.site"
 
 const (
-	GetDomains apiActions = iota
+	getDomains apiActions = iota
 
-	GetEmails
-	DelEmails
-	CountMails
+	getEmails
+	delEmails
+	countMails
 
-	GetEmailInbox
-	DelEmailInbox
+	getEmailInbox
+	delEmailInbox
 )
 
 type API struct {
@@ -51,7 +51,7 @@ func GenrateRandomEmail() *API {
 }
 
 func (a *API) GetAvailableDomains() ([]string, error) {
-	response, err := a.DoRequest(GetDomains, nil)
+	response, err := a.DoRequest(getDomains, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -79,22 +79,22 @@ func (a *API) DoRequest(action apiActions, args map[string]string) (*http.Respon
 	var method string
 
 	switch action {
-	case GetEmails:
+	case getEmails:
 		method = "GET"
 		url = fmt.Sprintf("%s/emails/%s", APIBase, a.Email)
-	case DelEmails:
+	case delEmails:
 		method = "DELETE"
 		url = fmt.Sprintf("%s/emails/%s", APIBase, a.Email)
-	case CountMails:
+	case countMails:
 		method = "GET"
 		url = fmt.Sprintf("%s/emails/count/%s", APIBase, a.Email)
-	case GetDomains:
+	case getDomains:
 		method = "GET"
 		url = fmt.Sprintf("%s/domains", APIBase)
-	case GetEmailInbox:
+	case getEmailInbox:
 		method = "GET"
 		url = fmt.Sprintf("%s/inbox/%s", APIBase, args["ID"])
-	case DelEmailInbox:
+	case delEmailInbox:
 		method = "DELETE"
 		url = fmt.Sprintf("%s/inbox/%s", APIBase, args["ID"])
 	default:
@@ -119,7 +119,7 @@ func (a *API) DoRequest(action apiActions, args map[string]string) (*http.Respon
 
 	//defer response.Body.Close()
 
-	if err != nil || (response != nil && response.StatusCode != 200) {
+	if response != nil && response.StatusCode != 200 {
 		return nil, errors.Errorf("[ %d ] - failed to send request", response.StatusCode)
 	}
 
