@@ -58,8 +58,17 @@ func (a *API) GetAvailableDomains() ([]string, error) {
 
 	defer response.Body.Close()
 
-	domains := make([]string, 0)
-	if err := json.NewDecoder(response.Body).Decode(&domains); err != nil {
+	var result APIResponse
+
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		return nil, errors.New("failed to decode domains")
+	}
+	if !result.Success {
+		return nil, errors.New("failed to get domains")
+	}
+	var domains []string
+
+	if err := json.Unmarshal(result.Result, &domains); err != nil {
 		return nil, errors.New("failed to decode domains")
 	}
 	return domains, nil
